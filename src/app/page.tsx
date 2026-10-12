@@ -38,7 +38,7 @@ export default function OnficeApp() {
 
   const fetchWorkspace = async () => {
     try {
-      const res = await fetch('/api/workspace');
+      const res = await fetch('/api/workspace', { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         setWorkspace(data.data);
