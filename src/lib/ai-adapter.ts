@@ -104,6 +104,62 @@ Konteks ruang kerja saat ini: ${JSON.stringify(contextSummary)}`;
     }
   }
 
+  // If OpenAI API key is configured, call OpenAI API
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      const systemInstruction = `Kamu adalah Onfice AI Assistant, asisten virtual office cerdas untuk workspace "${workspace.organization.name}".
+Gunakan bahasa Indonesia yang profesional, ramah, dan ringkas.
+Bantu pengguna mengelola tugas, membuat draf dokumen/pesan, merangkum proyek, dan menjawab agenda rapat.
+Jika pengguna meminta membuat tugas, susun draf judul dan prioritas.
+Konteks ruang kerja saat ini: ${JSON.stringify(contextSummary)}`;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemInstruction },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.7,
+        }),
+      });
+
+      if (response.ok) {
+        const json = await response.json();
+        const text = json.choices?.[0]?.message?.content;
+        if (text) {
+          let suggestedAction = undefined;
+          const lower = prompt.toLowerCase();
+          if (lower.includes('buat') && (lower.includes('tugas') || lower.includes('task'))) {
+            suggestedAction = {
+              type: 'create_task' as const,
+              payload: {
+                title: prompt.replace(/buat(kan)?\s+(tugas|task)\s*:?/i, '').trim() || 'Tugas Baru dari AI',
+                projectId: workspace.projects[0]?.id || 'proj-1',
+                priority: 'medium',
+                status: 'todo',
+              },
+              label: 'Buat Tugas Baru Sekarang',
+            };
+          }
+
+          return {
+            message: text,
+            isSimulated: false,
+            suggestedAction,
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('OpenAI API call failed, falling back to local contextual reasoning:', e);
+    }
+  }
+
   // Fallback: Intelligent Context-Aware Workspace Reasoning
   // Analyzes real workspace data without hallucinations
   const lowerPrompt = prompt.toLowerCase();
