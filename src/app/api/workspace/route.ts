@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
 export async function GET(req: Request) {
+  // Reading req.url ensures Next.js compiler treats route as dynamic
+  const _url = new URL(req.url);
   try {
     const data = db.getWorkspace();
     return NextResponse.json(

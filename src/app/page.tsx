@@ -52,7 +52,7 @@ export default function OnficeApp() {
 
   useEffect(() => {
     fetchWorkspace();
-  }, []);
+  }, [currentTab]);
 
   // Handlers for room presence
   const handleJoinRoom = async (roomId: string) => {

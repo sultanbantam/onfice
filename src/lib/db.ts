@@ -325,33 +325,44 @@ const INITIAL_WORKSPACE: WorkspaceData = {
   ],
 };
 
-// Helper to ensure data directory exists and read/write
+// In-memory cache + persistent file sync
+let memoryCache: WorkspaceData = JSON.parse(JSON.stringify(INITIAL_WORKSPACE));
+let storageInitialized = false;
+
 function ensureStorage(): WorkspaceData {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!storageInitialized) {
+    try {
+      if (fs.existsSync(DATA_FILE)) {
+        const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+        memoryCache = JSON.parse(raw);
+      } else {
+        if (!fs.existsSync(DATA_DIR)) {
+          fs.mkdirSync(DATA_DIR, { recursive: true });
+        }
+        fs.writeFileSync(DATA_FILE, JSON.stringify(memoryCache, null, 2), 'utf-8');
+      }
+    } catch (err) {
+      console.warn('Notice: Primary file storage fallback, memory cache active:', err);
     }
-    if (!fs.existsSync(DATA_FILE)) {
-      fs.writeFileSync(DATA_FILE, JSON.stringify(INITIAL_WORKSPACE, null, 2), 'utf-8');
-      return INITIAL_WORKSPACE;
-    }
-    const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
-    return parsed;
-  } catch (err) {
-    console.error('Error accessing storage, using in-memory fallback:', err);
-    return INITIAL_WORKSPACE;
+    storageInitialized = true;
   }
+  return memoryCache;
 }
 
 function saveStorage(data: WorkspaceData): void {
+  memoryCache = data;
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
   } catch (err) {
-    console.error('Failed to persist storage:', err);
+    try {
+      const fallbackFile = path.join('/tmp', 'onfice-store.json');
+      fs.writeFileSync(fallbackFile, JSON.stringify(data, null, 2), 'utf-8');
+    } catch {
+      // Memory cache is maintained
+    }
   }
 }
 
